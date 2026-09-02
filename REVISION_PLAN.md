@@ -73,7 +73,7 @@ Durum: **Tamamlandı**
 
 ### R3 — Public API sözleşmesi ve kayıpsız finansal çıktı
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - Query alanları ve dış alias'lar açık bir sözleşmeye bağlanacak.
 - Başarı ve hata cevap modelleri eklenecek; OpenAPI gerçek alanları ve hata

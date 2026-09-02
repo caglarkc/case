@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -77,6 +79,41 @@ def test_converts_with_the_upstream_rate() -> None:
         "asked_date": "2026-08-28",
         "source": "ECB via frankfurter.dev",
     }
+
+
+def test_preserves_large_decimal_values_in_the_json_number_tokens() -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=valid_payload(rates={"TRY": 1}))
+
+    with api_client(upstream) as client:
+        response = client.get(
+            "/tools/convert",
+            params={**VALID_PARAMS, "amount": "9999999999999999.99"},
+        )
+
+    payload = json.loads(response.text, parse_float=Decimal, parse_int=Decimal)
+    assert response.status_code == 200
+    assert payload["amount"] == Decimal("9999999999999999.99")
+    assert payload["result"] == Decimal("9999999999999999.99")
+
+
+def test_documents_the_complete_public_response_contract() -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        pytest.fail("OpenAPI inspection must not reach the upstream")
+
+    with api_client(upstream) as client:
+        operation = client.get("/openapi.json").json()["paths"]["/tools/convert"]["get"]
+
+    assert set(operation["responses"]) == {"200", "404", "422", "500", "502", "504"}
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ConversionResponse"
+    }
+    parameter_names = {parameter["name"] for parameter in operation["parameters"]}
+    assert parameter_names == {"amount", "from", "to", "date"}
+    for status in {"404", "422", "500", "502", "504"}:
+        assert operation["responses"][status]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorResponse"
+        }
 
 
 def test_uses_the_actual_rate_date_for_a_weekend() -> None:
@@ -170,7 +207,10 @@ def test_rejects_invalid_amounts_without_calling_upstream(amount: str | None) ->
     assert_error(response, 422, "invalid_amount")
 
 
-@pytest.mark.parametrize("field,value", [("from", "EU"), ("to", "TR1"), ("from", "")])
+@pytest.mark.parametrize(
+    "field,value",
+    [("from", "EU"), ("to", "TR1"), ("from", ""), ("from", " EUR ")],
+)
 def test_rejects_malformed_currencies(field: str, value: str) -> None:
     def upstream(_: httpx.Request) -> httpx.Response:
         pytest.fail("Invalid input must not reach the upstream")

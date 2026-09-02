@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from collections import OrderedDict
@@ -7,12 +8,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 UPSTREAM_BASE = os.getenv("FX_UPSTREAM_BASE", "https://api.frankfurter.dev").rstrip("/")
@@ -26,6 +28,60 @@ RateCacheKey = tuple[str, str, date]
 RateCacheValue = tuple[Decimal, date]
 
 _rate_cache: OrderedDict[RateCacheKey, RateCacheValue] = OrderedDict()
+
+DecimalNumber = Annotated[
+    Decimal,
+    WithJsonSchema({"type": "number"}, mode="serialization"),
+]
+
+
+class ConversionQuery(BaseModel):
+    amount: Decimal
+    source_currency: str
+    target_currency: str
+    asked_date: date
+
+
+class ConversionResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    amount: DecimalNumber
+    source_currency: str = Field(alias="from")
+    target_currency: str = Field(alias="to")
+    rate: DecimalNumber
+    result: DecimalNumber
+    rate_date: date
+    asked_date: date
+    source: str
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+
+
+class DecimalJSONResponse(Response):
+    """Render finite Decimals as JSON numbers without a binary-float hop."""
+
+    media_type = "application/json"
+
+    def render(self, content: Any) -> bytes:
+        def encode(value: Any) -> str:
+            if isinstance(value, Decimal):
+                if not value.is_finite():
+                    raise ValueError("JSON numbers must be finite")
+                return format(value, "f")
+            if isinstance(value, date):
+                return json.dumps(value.isoformat())
+            if isinstance(value, dict):
+                return "{" + ",".join(
+                    f"{json.dumps(str(key))}:{encode(item)}" for key, item in value.items()
+                ) + "}"
+            if isinstance(value, (list, tuple)):
+                return "[" + ",".join(encode(item) for item in value) + "]"
+            return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+
+        return encode(content).encode("utf-8")
 
 
 class ServiceError(Exception):
@@ -160,16 +216,26 @@ async def fetch_rate(
     return value
 
 
-@app.get("/tools/convert")
+@app.get(
+    "/tools/convert",
+    response_model=ConversionResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Rate not found"},
+        422: {"model": ErrorResponse, "description": "Invalid request"},
+        500: {"model": ErrorResponse, "description": "Internal error"},
+        502: {"model": ErrorResponse, "description": "Upstream error"},
+        504: {"model": ErrorResponse, "description": "Upstream timeout"},
+    },
+)
 async def convert(
     amount: Annotated[Decimal, Query(gt=0, max_digits=18, decimal_places=2)],
     source_currency: Annotated[str, Query(alias="from")],
     target_currency: Annotated[str, Query(alias="to")],
     asked_date: Annotated[date, Query(alias="date")],
     client: Annotated[httpx.AsyncClient, Depends(get_http_client)],
-) -> dict[str, object]:
-    source_currency = source_currency.strip().upper()
-    target_currency = target_currency.strip().upper()
+) -> Response:
+    source_currency = source_currency.upper()
+    target_currency = target_currency.upper()
 
     if not CURRENCY_PATTERN.fullmatch(source_currency) or not CURRENCY_PATTERN.fullmatch(
         target_currency
@@ -182,10 +248,17 @@ async def convert(
     if source_currency == target_currency:
         raise ServiceError(422, "same_currency", "Source and target currencies must differ.")
 
+    query = ConversionQuery(
+        amount=amount,
+        source_currency=source_currency,
+        target_currency=target_currency,
+        asked_date=asked_date,
+    )
+
     today_utc = datetime.now(timezone.utc).date()
-    if asked_date > today_utc:
+    if query.asked_date > today_utc:
         raise ServiceError(422, "future_date", "The requested date cannot be in the future.")
-    if asked_date < ECB_SERIES_START:
+    if query.asked_date < ECB_SERIES_START:
         raise ServiceError(
             422,
             "date_out_of_range",
@@ -193,20 +266,21 @@ async def convert(
         )
 
     rate, rate_date = await fetch_rate(
-        source_currency,
-        target_currency,
-        asked_date,
+        query.source_currency,
+        query.target_currency,
+        query.asked_date,
         client,
     )
-    result = (amount * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    result = (query.amount * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    return {
-        "amount": float(amount),
-        "from": source_currency,
-        "to": target_currency,
-        "rate": float(rate),
-        "result": float(result),
-        "rate_date": rate_date,
-        "asked_date": asked_date,
-        "source": SOURCE,
-    }
+    response = ConversionResponse(
+        amount=query.amount,
+        source_currency=query.source_currency,
+        target_currency=query.target_currency,
+        rate=rate,
+        result=result,
+        rate_date=rate_date,
+        asked_date=query.asked_date,
+        source=SOURCE,
+    )
+    return DecimalJSONResponse(response.model_dump(by_alias=True))
