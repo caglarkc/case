@@ -73,7 +73,7 @@ Durum: **Tamamlandı**
 
 ### R3 — Public API sözleşmesi ve kayıpsız finansal çıktı
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`6315550`)
 
 - Query alanları ve dış alias'lar açık bir sözleşmeye bağlanacak.
 - Başarı ve hata cevap modelleri eklenecek; OpenAPI gerçek alanları ve hata
@@ -86,7 +86,7 @@ Durum: **Tamamlandı**
 
 ### R4 — Strict upstream güven sınırı
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`974eec9`)
 
 - HTTP status, JSON nesne yapısı, `base`, `date`, hedef alanı ve kur türü katı
   biçimde doğrulanacak.
@@ -98,7 +98,7 @@ Durum: **Tamamlandı**
 
 ### R5 — Cache ve eşzamanlı istek güvenilirliği
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`d422a7b`)
 
 - Cache anahtarı `(from, to, asked_date)` ve değer provenance'ı korunacak.
 - Aynı anahtar için eşzamanlı cache miss'leri tek upstream isteğinde
@@ -109,7 +109,7 @@ Durum: **Tamamlandı**
 
 ### R6 — Eksik otomatik testlerin tamamlanması
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`5101897`)
 
 - Büyük tutar hassasiyeti, strict upstream sayıları, OpenAPI sözleşmesi,
   eşzamanlı cache, `/latest` yasağı ve script taşınabilirliği için regresyon
@@ -120,7 +120,7 @@ Durum: **Tamamlandı**
 
 ### R7 — Kullanıcı dokümantasyonu ve planların senkronizasyonu
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - README komutları Ubuntu, Windows ve aktif/pasif `.venv` açısından açık hale
   getirilecek.

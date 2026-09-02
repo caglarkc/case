@@ -103,7 +103,9 @@ Only these response values are trusted after validation:
 - `base` must equal the requested source currency.
 - `date` must be a valid date and must not be later than `asked_date`.
 - `rates` must be an object containing the requested target currency.
-- The selected rate must be a positive finite number.
+- The selected rate must be a JSON number, not a string or boolean.
+- The selected rate must be positive, finite, at most 18 significant/integer
+  digits and at most 12 decimal places.
 
 An upstream response with a future `date`, mismatched `base`, missing target or
 invalid rate is an invalid upstream response. The service must fail instead of
@@ -132,9 +134,12 @@ The current date check will use UTC because Frankfurter stores dates in UTC.
 ## Calculation and rounding
 
 - Parse and calculate with `Decimal`; do not use binary `float` for money.
+- Parse upstream JSON number tokens directly as `Decimal`.
 - Preserve the upstream rate precision in the `rate` field.
 - Calculate `amount * rate` before rounding.
 - Round only `result` to 2 decimal places using `ROUND_HALF_UP`.
+- Render Decimal values as JSON number tokens without converting through
+  binary `float`.
 - Never convert a failed lookup into a zero rate or zero result.
 
 ## Cache design
@@ -155,10 +160,11 @@ Cached value:
 
 Rules:
 
-- Repeated sequential requests with the same pair and date make no new
-  upstream call, even if their amounts differ.
+- Repeated requests with the same pair and date make no new upstream call,
+  even if their amounts differ.
+- Simultaneous misses for the same cache key share one in-flight upstream task.
 - Only validated successful upstream responses are cached.
-- Errors and timeouts are never cached.
+- Errors and timeouts are never cached and a later request may retry them.
 - Historical entries need no TTL because published ECB history is treated as
   immutable for this case.
 - The cache will have a fixed maximum size to prevent unbounded memory growth.
@@ -218,12 +224,15 @@ separate committed step. They must use a fake HTTP transport and pass while
 Required groups:
 
 - Successful conversion and precision
+- Lossless large Decimal response tokens
 - Weekend/holiday date transparency
-- Cache hit and cache-key isolation
+- Cache hit, LRU behavior, cache-key isolation and concurrent coalescing
 - Every input validation branch
 - 404, 422 and 5xx upstream responses
 - Timeout and connection failure
-- Non-JSON and structurally invalid JSON
+- Non-JSON, structurally invalid JSON and unsafe number tokens
+- OpenAPI success/error contract
+- Portable script and process-level fake-upstream behavior
 - No false 200 response on any failure
 - No real network access
 

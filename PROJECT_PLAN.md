@@ -208,6 +208,22 @@ Part A bittikten sonra `tool.py` yeniden, bağımsız biçimde incelenecek.
 Part B sırasında `tool.py`, Part A çözümünün temeli olarak kullanılmayacak ve
 iki görevin kodları birbirine karıştırılmayacaktır.
 
+### 10. Part B bulgularını Part A'ya geri uygulama
+
+Durum: **Son kabul testi bekleniyor**
+
+- Windows'tan Ubuntu'ya geçiş ve `.venv` çalışma biçimi kaydedildi.
+- Scriptler depo içindeki sanal ortamı farklı çalışma dizinlerinden bulacak
+  şekilde taşınabilir hale getirildi.
+- Açık başarı/hata modelleri ve tam OpenAPI sözleşmesi eklendi.
+- Decimal değerlerin JSON sınırında `float` hassasiyeti kaybetmesi giderildi.
+- Upstream JSON sayıları katı biçimde doğrulanıp güvenli hesap sınırları
+  eklendi.
+- Aynı anda gelen aynı cache miss'leri tek upstream çağrısında birleştirildi.
+- Part B bulgularını hedefleyen regresyon takımı 63 teste çıkarıldı.
+- Kalan iş: process-seviyesi fake-upstream kabul testi ve beklenen/oluşturulan
+  final raporu (`REVISION_PLAN.md` R8).
+
 ## Tamamlanma ölçütü
 
 - `./run.sh` servisi doğru portta başlatıyor.

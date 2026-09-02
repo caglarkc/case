@@ -7,12 +7,25 @@ Bank reference rates supplied by the Frankfurter v1 API.
 
 Requires Python 3.11 or newer.
 
+On Ubuntu/macOS:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ./run.sh
 ```
+
+On Windows PowerShell, create and populate the virtual environment with:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Then run `./run.sh` from Git Bash or WSL. Both project scripts locate the
+repository and prefer its `.venv` automatically; activating the environment is
+optional. If `.venv` is absent, they fall back to an available `python3` or
+`python` command.
 
 The service listens on port `8080` by default.
 
@@ -77,7 +90,8 @@ or unavailable rate produces an error rather than a zero or invented result.
 
 Successful rate lookups are cached in memory by source currency, target
 currency and requested date. Repeating a lookup does not call Frankfurter
-again. Errors are not cached, and the cache is cleared on restart.
+again. Simultaneous misses for the same key also share one upstream request.
+Errors are not cached, and the cache is cleared on restart.
 
 ## Error responses
 
@@ -112,5 +126,13 @@ Unknown routes and unsupported HTTP methods use `not_found` and
 
 Money calculations use `Decimal`. The upstream rate is preserved at its
 published precision; only the final result is rounded to two decimal places
-using `ROUND_HALF_UP`. Upstream responses are accepted only when their base,
-target, rate and date match the requested operation.
+using `ROUND_HALF_UP`. Decimal values are emitted as JSON numbers without first
+being converted to binary `float`, so accepted values do not silently lose
+digits at the HTTP boundary.
+
+Upstream responses are accepted only when their base, target, rate and date
+match the requested operation. A rate must be a JSON number (not a numeric
+string or boolean), positive and finite, with at most 18 significant/integer
+digits and 12 decimal places. Values outside that defensive calculation range
+produce `invalid_upstream_response` rather than an uncontrolled arithmetic
+failure.
