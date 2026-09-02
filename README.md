@@ -54,8 +54,10 @@ Example response:
 ./test.sh
 ```
 
-The tests replace Frankfurter with a fake HTTP transport and make no network
-requests. They also pass when `FX_UPSTREAM_BASE` points to a closed port.
+The unit/contract tests replace Frankfurter with a fake HTTP transport. A final
+process acceptance test starts a fake provider on loopback and launches the
+service through `run.sh`; no external network is used. The suite also passes
+when the parent `FX_UPSTREAM_BASE` points to a closed port.
 
 ## Configuration
 

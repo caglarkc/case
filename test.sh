@@ -19,4 +19,5 @@ else
 fi
 
 cd "$PROJECT_DIR"
-exec "$PYTHON_BIN" -m pytest -q
+"$PYTHON_BIN" -m pytest -q
+"$PYTHON_BIN" tests/acceptance.py

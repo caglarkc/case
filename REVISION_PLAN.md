@@ -131,7 +131,7 @@ Durum: **Tamamlandı**
 
 ### R8 — Process-seviyesi kabul testi ve final raporu
 
-Durum: **Bekliyor**
+Durum: **Kabul testi yazıldı; final raporu bekliyor**
 
 - Sahte upstream ve `run.sh` ile gerçek process sınırını kullanan ek bir kabul
   testi oluşturulacak.
