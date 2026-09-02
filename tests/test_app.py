@@ -146,6 +146,24 @@ def test_calculates_before_rounding_the_result() -> None:
     assert response.json()["result"] == 1.01
 
 
+def test_preserves_upstream_decimal_precision_before_calculation() -> None:
+    payload = b'{"base":"EUR","date":"2026-08-28","rates":{"TRY":1.123456789012}}'
+
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=payload)
+
+    with api_client(upstream) as client:
+        response = client.get(
+            "/tools/convert",
+            params={**VALID_PARAMS, "amount": "2"},
+        )
+
+    body = json.loads(response.text, parse_float=Decimal)
+    assert response.status_code == 200
+    assert body["rate"] == Decimal("1.123456789012")
+    assert body["result"] == Decimal("2.25")
+
+
 def test_reuses_a_cached_rate_for_a_different_amount() -> None:
     upstream_calls = 0
 
@@ -328,13 +346,36 @@ def test_rejects_a_non_json_response() -> None:
         valid_payload(rates={}),
         valid_payload(rates={"TRY": 0}),
         valid_payload(rates={"TRY": "NaN"}),
+        valid_payload(rates={"TRY": "1.25"}),
+        valid_payload(rates={"TRY": True}),
         valid_payload(date="not-a-date"),
+        valid_payload(date=20260828),
         valid_payload(date="2026-08-29"),
     ],
 )
 def test_rejects_invalid_upstream_data(payload: object) -> None:
     def upstream(_: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=payload)
+
+    with api_client(upstream) as client:
+        response = client.get("/tools/convert", params=VALID_PARAMS)
+
+    assert_error(response, 502, "invalid_upstream_response")
+
+
+@pytest.mark.parametrize(
+    "rate_token",
+    ["1e999", "1234567890123456789", "1.1234567890123", "NaN", "Infinity"],
+)
+def test_rejects_unsafe_upstream_number_tokens(rate_token: str) -> None:
+    raw_payload = (
+        '{"base":"EUR","date":"2026-08-28","rates":{"TRY":'
+        + rate_token
+        + "}}"
+    ).encode()
+
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=raw_payload)
 
     with api_client(upstream) as client:
         response = client.get("/tools/convert", params=VALID_PARAMS)

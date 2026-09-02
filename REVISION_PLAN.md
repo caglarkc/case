@@ -86,7 +86,7 @@ Durum: **Tamamlandı**
 
 ### R4 — Strict upstream güven sınırı
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - HTTP status, JSON nesne yapısı, `base`, `date`, hedef alanı ve kur türü katı
   biçimde doğrulanacak.

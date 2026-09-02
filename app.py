@@ -7,7 +7,7 @@ from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, DecimalException, localcontext
 from typing import Annotated, Any
 
 import httpx
@@ -21,6 +21,9 @@ UPSTREAM_BASE = os.getenv("FX_UPSTREAM_BASE", "https://api.frankfurter.dev").rst
 SOURCE = "ECB via frankfurter.dev"
 ECB_SERIES_START = date(1999, 1, 4)
 CACHE_MAX_SIZE = 1024
+MAX_AMOUNT_DIGITS = 18
+MAX_RATE_DIGITS = 18
+MAX_RATE_DECIMAL_PLACES = 12
 HTTP_TIMEOUT = httpx.Timeout(3.0, connect=1.0)
 CURRENCY_PATTERN = re.compile(r"^[A-Z]{3}$")
 
@@ -149,6 +152,50 @@ def get_http_client(request: Request) -> httpx.AsyncClient:
     return request.app.state.http_client
 
 
+def reject_non_finite_json_number(value: str) -> None:
+    raise ValueError(f"Invalid JSON number: {value}")
+
+
+def parse_rate(payload: object, source_currency: str, target_currency: str) -> RateCacheValue:
+    if not isinstance(payload, dict) or payload.get("base") != source_currency:
+        raise ValueError("unexpected base currency")
+
+    rates = payload.get("rates")
+    if not isinstance(rates, dict) or target_currency not in rates:
+        raise ValueError("target rate is missing")
+
+    raw_rate = rates[target_currency]
+    if isinstance(raw_rate, bool) or not isinstance(raw_rate, (int, Decimal)):
+        raise ValueError("rate must be a JSON number")
+
+    rate = raw_rate if isinstance(raw_rate, Decimal) else Decimal(raw_rate)
+    if not rate.is_finite() or rate <= 0:
+        raise ValueError("rate must be positive and finite")
+
+    rate_tuple = rate.as_tuple()
+    digits = list(rate_tuple.digits)
+    exponent = rate_tuple.exponent
+    while len(digits) > 1 and exponent < 0 and digits[-1] == 0:
+        digits.pop()
+        exponent += 1
+
+    significant_digits = len(digits)
+    decimal_places = max(-exponent, 0)
+    integer_digits = max(significant_digits + exponent, 0)
+    if (
+        significant_digits > MAX_RATE_DIGITS
+        or decimal_places > MAX_RATE_DECIMAL_PLACES
+        or integer_digits > MAX_RATE_DIGITS
+    ):
+        raise ValueError("rate exceeds the safe numeric range")
+
+    raw_date = payload.get("date")
+    if not isinstance(raw_date, str):
+        raise ValueError("rate date must be an ISO date string")
+    rate_date = date.fromisoformat(raw_date)
+    return rate, rate_date
+
+
 async def fetch_rate(
     source_currency: str,
     target_currency: str,
@@ -180,8 +227,12 @@ async def fetch_rate(
         raise ServiceError(502, "upstream_error", "The exchange-rate provider returned an error.")
 
     try:
-        payload = response.json()
-    except ValueError as exc:
+        payload = json.loads(
+            response.content,
+            parse_float=Decimal,
+            parse_constant=reject_non_finite_json_number,
+        )
+    except (TypeError, ValueError) as exc:
         raise ServiceError(
             502,
             "invalid_upstream_response",
@@ -189,19 +240,10 @@ async def fetch_rate(
         ) from exc
 
     try:
-        if not isinstance(payload, dict) or payload.get("base") != source_currency:
-            raise ValueError("unexpected base currency")
-        rates = payload.get("rates")
-        if not isinstance(rates, dict) or target_currency not in rates:
-            raise ValueError("target rate is missing")
-
-        rate = Decimal(str(rates[target_currency]))
-        rate_date = date.fromisoformat(payload["date"])
-        if not rate.is_finite() or rate <= 0:
-            raise ValueError("rate must be positive and finite")
+        rate, rate_date = parse_rate(payload, source_currency, target_currency)
         if rate_date < ECB_SERIES_START or rate_date > asked_date:
             raise ValueError("rate date is outside the requested range")
-    except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
+    except (TypeError, ValueError, DecimalException) as exc:
         raise ServiceError(
             502,
             "invalid_upstream_response",
@@ -271,7 +313,19 @@ async def convert(
         query.asked_date,
         client,
     )
-    result = (query.amount * rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    try:
+        with localcontext() as decimal_context:
+            decimal_context.prec = MAX_AMOUNT_DIGITS + MAX_RATE_DIGITS + 4
+            result = (query.amount * rate).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+    except DecimalException as exc:
+        raise ServiceError(
+            502,
+            "invalid_upstream_response",
+            "The exchange-rate provider returned an invalid response.",
+        ) from exc
 
     response = ConversionResponse(
         amount=query.amount,
