@@ -59,6 +59,9 @@ process acceptance test starts a fake provider on loopback and launches the
 service through `run.sh`; no external network is used. The suite also passes
 when the parent `FX_UPSTREAM_BASE` points to a closed port.
 
+The final expected-versus-created results are recorded in
+[`ACCEPTANCE_REPORT.md`](ACCEPTANCE_REPORT.md).
+
 ## Configuration
 
 | Variable | Default | Purpose |

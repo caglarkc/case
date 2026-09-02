@@ -21,16 +21,15 @@ Gereksinimler değişmedikçe aşağıdaki teknik kararlar sabit kabul edilecekt
 
 ### Part A — Uygulama
 
-Durum: **Kapsamlı revizyonda**
+Durum: **Tamamlandı (kapsamlı revizyon ve kabul sonrası)**
 
 Döviz çeviri endpoint'inin yazılması, doğrulanması, test edilmesi ve kullanım
 dokümantasyonunun hazırlanmasıdır.
 
 İlk uygulama sonrasında Part B bulguları Part A'ya geri uygulanarak ek bir
-güvenilirlik turu başlatılmıştır. Güncel aşamalar, kanıtlanmış açıklar ve commit
-kapıları `REVISION_PLAN.md` içinde takip edilir. Aşağıdaki “Tamamlandı” kayıtları
-ilk geliştirme turunun tarihsel durumudur; revizyon turu bitmeden Part A nihai
-olarak tamamlanmış sayılmaz.
+güvenilirlik turu tamamlanmıştır. Aşamalar ve commit kapıları
+`REVISION_PLAN.md`, final kanıtları `ACCEPTANCE_REPORT.md` içinde kayıtlıdır.
+Aşağıdaki ilk dokuz aşama ilk geliştirme turunun tarihsel kayıtlarıdır.
 
 ### Part B — Kod incelemesi
 
@@ -210,7 +209,7 @@ iki görevin kodları birbirine karıştırılmayacaktır.
 
 ### 10. Part B bulgularını Part A'ya geri uygulama
 
-Durum: **Son kabul testi bekleniyor**
+Durum: **Tamamlandı**
 
 - Windows'tan Ubuntu'ya geçiş ve `.venv` çalışma biçimi kaydedildi.
 - Scriptler depo içindeki sanal ortamı farklı çalışma dizinlerinden bulacak
@@ -221,8 +220,8 @@ Durum: **Son kabul testi bekleniyor**
   eklendi.
 - Aynı anda gelen aynı cache miss'leri tek upstream çağrısında birleştirildi.
 - Part B bulgularını hedefleyen regresyon takımı 63 teste çıkarıldı.
-- Kalan iş: process-seviyesi fake-upstream kabul testi ve beklenen/oluşturulan
-  final raporu (`REVISION_PLAN.md` R8).
+- Process-seviyesi fake-upstream kabul testinin 7 kontrolü geçti.
+- Beklenen/oluşturulan final sonuçları `ACCEPTANCE_REPORT.md` içine kaydedildi.
 
 ## Tamamlanma ölçütü
 

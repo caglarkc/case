@@ -61,7 +61,7 @@ Durum: **Tamamlandı** (`2544de4`)
 
 ### R2 — Taşınabilir çalıştırma ve yapılandırma
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`bfff407`)
 
 - `run.sh` ve `test.sh`, depo içindeki `.venv` yorumlayıcısını tercih edecek;
   yoksa kullanılabilir `python3` / `python` yorumlayıcısına güvenli biçimde
@@ -120,7 +120,7 @@ Durum: **Tamamlandı** (`5101897`)
 
 ### R7 — Kullanıcı dokümantasyonu ve planların senkronizasyonu
 
-Durum: **Tamamlandı**
+Durum: **Tamamlandı** (`f14ebdf`)
 
 - README komutları Ubuntu, Windows ve aktif/pasif `.venv` açısından açık hale
   getirilecek.
@@ -131,7 +131,7 @@ Durum: **Tamamlandı**
 
 ### R8 — Process-seviyesi kabul testi ve final raporu
 
-Durum: **Kabul testi yazıldı; final raporu bekliyor**
+Durum: **Tamamlandı** (kabul testi: `7872710`)
 
 - Sahte upstream ve `run.sh` ile gerçek process sınırını kullanan ek bir kabul
   testi oluşturulacak.
