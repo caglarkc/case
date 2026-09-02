@@ -49,7 +49,7 @@ All four query parameters are required.
 
 | Parameter | Rule |
 |---|---|
-| `amount` | Decimal number, greater than zero, at most 2 decimal places |
+| `amount` | Decimal number, greater than zero, at most 18 total digits and 2 decimal places |
 | `from` | Exactly 3 letters, normalized to uppercase |
 | `to` | Exactly 3 letters, normalized to uppercase |
 | `date` | ISO date (`YYYY-MM-DD`), not before 1999-01-04 and not in the future |
@@ -179,6 +179,7 @@ Rules:
 | Upstream HTTP 5xx or other unexpected status | 502 | `upstream_error` |
 | Non-JSON or invalid JSON schema | 502 | `invalid_upstream_response` |
 | Upstream timeout | 504 | `upstream_timeout` |
+| Unexpected internal failure | 500 | `internal_error` |
 
 Messages will be short and safe. Raw exception text and upstream response
 bodies will not be exposed to the caller.

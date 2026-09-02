@@ -110,7 +110,7 @@ tablosuna dönüştürülecek. Genel v2 özellikleri Part A koduna taşınmayaca
 
 ### 5. Part A uygulamasını yazma
 
-Durum: **Sıradaki aşama**
+Durum: **Tamamlandı**
 
 - Bağımlılık dosyası oluşturulacak.
 - FastAPI uygulaması ve `/tools/convert` endpoint'i yazılacak.
@@ -125,6 +125,8 @@ Durum: **Sıradaki aşama**
 Kod küçük, okunabilir ve brief kapsamıyla sınırlı tutulacak.
 
 ### 6. Uygulamayı ilk kez çalıştırma ve kontrol etme
+
+Durum: **Tamamlandı**
 
 Kontrol sırası:
 
@@ -147,6 +149,8 @@ Başarısızsa:
 
 ### 7. Part A otomatik testleri
 
+Durum: **Tamamlandı**
+
 Tüm testler gerçek ağ kapalıyken çalışmalıdır. En az şu senaryolar test
 edilecek:
 
@@ -166,6 +170,8 @@ edilecek:
 başarıyla çalıştırmalıdır.
 
 ### 8. Part A dokümantasyonu ve son kontrol
+
+Durum: **Sıradaki aşama**
 
 - `README.md`: kurulum, çalıştırma, test komutu, endpoint davranışı ve hata
   kodları
