@@ -98,7 +98,7 @@ Durum: **Tamamlandı**
 
 ### R5 — Cache ve eşzamanlı istek güvenilirliği
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - Cache anahtarı `(from, to, asked_date)` ve değer provenance'ı korunacak.
 - Aynı anahtar için eşzamanlı cache miss'leri tek upstream isteğinde

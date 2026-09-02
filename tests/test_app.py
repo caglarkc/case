@@ -4,6 +4,7 @@ import asyncio
 import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from datetime import date
 from decimal import Decimal
 
 import httpx
@@ -18,8 +19,10 @@ Handler = Callable[[httpx.Request], httpx.Response]
 @pytest.fixture(autouse=True)
 def clear_cache() -> Iterator[None]:
     application._rate_cache.clear()
+    application._inflight_rate_requests.clear()
     yield
     application._rate_cache.clear()
+    application._inflight_rate_requests.clear()
 
 
 @contextmanager
@@ -183,6 +186,70 @@ def test_reuses_a_cached_rate_for_a_different_amount() -> None:
     assert second_response.status_code == 200
     assert second_response.json()["result"] == 471.23
     assert upstream_calls == 1
+
+
+def test_coalesces_simultaneous_requests_for_the_same_rate() -> None:
+    async def scenario() -> tuple[list[application.RateCacheValue], int]:
+        upstream_calls = 0
+
+        async def upstream(_: httpx.Request) -> httpx.Response:
+            nonlocal upstream_calls
+            upstream_calls += 1
+            await asyncio.sleep(0.01)
+            return httpx.Response(200, json=valid_payload())
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as client:
+            results = await asyncio.gather(
+                *(
+                    application.fetch_rate(
+                        "EUR",
+                        "TRY",
+                        date(2026, 8, 28),
+                        client,
+                    )
+                    for _ in range(10)
+                )
+            )
+        return results, upstream_calls
+
+    results, upstream_calls = asyncio.run(scenario())
+
+    assert results == [(Decimal("47.1234"), date(2026, 8, 28))] * 10
+    assert upstream_calls == 1
+    assert application._inflight_rate_requests == {}
+
+
+def test_coalesced_failures_are_not_cached_and_can_be_retried() -> None:
+    async def scenario() -> tuple[list[BaseException], int]:
+        upstream_calls = 0
+
+        async def upstream(_: httpx.Request) -> httpx.Response:
+            nonlocal upstream_calls
+            upstream_calls += 1
+            await asyncio.sleep(0.01)
+            return httpx.Response(500)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as client:
+            first_results = await asyncio.gather(
+                *(
+                    application.fetch_rate("EUR", "TRY", date(2026, 8, 28), client)
+                    for _ in range(3)
+                ),
+                return_exceptions=True,
+            )
+            with pytest.raises(application.ServiceError):
+                await application.fetch_rate("EUR", "TRY", date(2026, 8, 28), client)
+
+        errors = [result for result in first_results if isinstance(result, BaseException)]
+        return errors, upstream_calls
+
+    errors, upstream_calls = asyncio.run(scenario())
+
+    assert len(errors) == 3
+    assert all(isinstance(error, application.ServiceError) for error in errors)
+    assert upstream_calls == 2
+    assert application._rate_cache == {}
+    assert application._inflight_rate_requests == {}
 
 
 def test_cache_keeps_dates_and_pairs_separate() -> None:

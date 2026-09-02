@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -31,6 +32,7 @@ RateCacheKey = tuple[str, str, date]
 RateCacheValue = tuple[Decimal, date]
 
 _rate_cache: OrderedDict[RateCacheKey, RateCacheValue] = OrderedDict()
+_inflight_rate_requests: dict[RateCacheKey, asyncio.Task[RateCacheValue]] = {}
 
 DecimalNumber = Annotated[
     Decimal,
@@ -196,17 +198,13 @@ def parse_rate(payload: object, source_currency: str, target_currency: str) -> R
     return rate, rate_date
 
 
-async def fetch_rate(
+async def fetch_and_cache_rate(
     source_currency: str,
     target_currency: str,
     asked_date: date,
     client: httpx.AsyncClient,
 ) -> RateCacheValue:
     cache_key = (source_currency, target_currency, asked_date)
-    if cache_key in _rate_cache:
-        _rate_cache.move_to_end(cache_key)
-        return _rate_cache[cache_key]
-
     try:
         response = await client.get(
             f"{UPSTREAM_BASE}/v1/{asked_date.isoformat()}",
@@ -256,6 +254,40 @@ async def fetch_rate(
     if len(_rate_cache) > CACHE_MAX_SIZE:
         _rate_cache.popitem(last=False)
     return value
+
+
+async def fetch_rate(
+    source_currency: str,
+    target_currency: str,
+    asked_date: date,
+    client: httpx.AsyncClient,
+) -> RateCacheValue:
+    cache_key = (source_currency, target_currency, asked_date)
+    if cache_key in _rate_cache:
+        _rate_cache.move_to_end(cache_key)
+        return _rate_cache[cache_key]
+
+    task = _inflight_rate_requests.get(cache_key)
+    if task is None:
+        task = asyncio.create_task(
+            fetch_and_cache_rate(
+                source_currency,
+                target_currency,
+                asked_date,
+                client,
+            )
+        )
+        _inflight_rate_requests[cache_key] = task
+
+        def remove_completed_task(completed_task: asyncio.Task[RateCacheValue]) -> None:
+            if _inflight_rate_requests.get(cache_key) is completed_task:
+                _inflight_rate_requests.pop(cache_key, None)
+            if not completed_task.cancelled():
+                completed_task.exception()
+
+        task.add_done_callback(remove_completed_task)
+
+    return await asyncio.shield(task)
 
 
 @app.get(
