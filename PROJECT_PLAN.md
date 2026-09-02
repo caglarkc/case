@@ -28,7 +28,7 @@ dokümantasyonunun hazırlanmasıdır.
 
 ### Part B — Kod incelemesi
 
-Durum: **Sıradaki aşama**
+Durum: **Tamamlandı**
 
 Verilen `tool.py` dosyasının müşteri etkisi açısından incelenmesi ve bulguların
 `REVIEW.md` içine önem sırasıyla yazılmasıdır. Part A tamamlandıktan sonra ayrı
@@ -189,7 +189,7 @@ sayılacaktır.
 
 ### 9. Part B'yi ayrı değerlendirme
 
-Durum: **Sıradaki aşama**
+Durum: **Tamamlandı**
 
 Part A bittikten sonra `tool.py` yeniden, bağımsız biçimde incelenecek.
 
