@@ -21,10 +21,14 @@ Gereksinimler değişmedikçe aşağıdaki teknik kararlar sabit kabul edilecekt
 
 ### Part A — Uygulama
 
+Durum: **Tamamlandı**
+
 Döviz çeviri endpoint'inin yazılması, doğrulanması, test edilmesi ve kullanım
 dokümantasyonunun hazırlanmasıdır.
 
 ### Part B — Kod incelemesi
+
+Durum: **Sıradaki aşama**
 
 Verilen `tool.py` dosyasının müşteri etkisi açısından incelenmesi ve bulguların
 `REVIEW.md` içine önem sırasıyla yazılmasıdır. Part A tamamlandıktan sonra ayrı
@@ -171,7 +175,7 @@ başarıyla çalıştırmalıdır.
 
 ### 8. Part A dokümantasyonu ve son kontrol
 
-Durum: **Sıradaki aşama**
+Durum: **Tamamlandı**
 
 - `README.md`: kurulum, çalıştırma, test komutu, endpoint davranışı ve hata
   kodları
@@ -184,6 +188,8 @@ Part A ancak uygulama ve ağsız testler birlikte başarılı olduğunda tamamla
 sayılacaktır.
 
 ### 9. Part B'yi ayrı değerlendirme
+
+Durum: **Sıradaki aşama**
 
 Part A bittikten sonra `tool.py` yeniden, bağımsız biçimde incelenecek.
 
