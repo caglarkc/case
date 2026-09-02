@@ -120,7 +120,13 @@ def test_documents_the_complete_public_response_contract() -> None:
 
 
 def test_uses_the_actual_rate_date_for_a_weekend() -> None:
-    def upstream(_: httpx.Request) -> httpx.Response:
+    upstream_calls = 0
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal upstream_calls
+        upstream_calls += 1
+        assert request.url.path == "/v1/2026-08-30"
+        assert "latest" not in str(request.url)
         return httpx.Response(200, json=valid_payload(date="2026-08-28"))
 
     with api_client(upstream) as client:
@@ -132,6 +138,7 @@ def test_uses_the_actual_rate_date_for_a_weekend() -> None:
     assert response.status_code == 200
     assert response.json()["asked_date"] == "2026-08-30"
     assert response.json()["rate_date"] == "2026-08-28"
+    assert upstream_calls == 1
 
 
 def test_calculates_before_rounding_the_result() -> None:
@@ -257,19 +264,41 @@ def test_cache_keeps_dates_and_pairs_separate() -> None:
 
     def upstream(request: httpx.Request) -> httpx.Response:
         requested_urls.append(str(request.url))
+        base = request.url.params["base"]
         target = request.url.params["symbols"]
         requested_date = request.url.path.rsplit("/", 1)[-1]
         return httpx.Response(
             200,
-            json=valid_payload(date=requested_date, rates={target: 2}),
+            json=valid_payload(base=base, date=requested_date, rates={target: 2}),
         )
 
     with api_client(upstream) as client:
         client.get("/tools/convert", params=VALID_PARAMS)
         client.get("/tools/convert", params={**VALID_PARAMS, "date": "2026-08-27"})
         client.get("/tools/convert", params={**VALID_PARAMS, "to": "USD"})
+        client.get("/tools/convert", params={**VALID_PARAMS, "from": "USD"})
 
-    assert len(requested_urls) == 3
+    assert len(requested_urls) == 4
+
+
+def test_a_cache_hit_refreshes_the_lru_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    upstream_calls = 0
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal upstream_calls
+        upstream_calls += 1
+        target = request.url.params["symbols"]
+        return httpx.Response(200, json=valid_payload(rates={target: 2}))
+
+    monkeypatch.setattr(application, "CACHE_MAX_SIZE", 2)
+    with api_client(upstream) as client:
+        client.get("/tools/convert", params=VALID_PARAMS)
+        client.get("/tools/convert", params={**VALID_PARAMS, "to": "USD"})
+        client.get("/tools/convert", params=VALID_PARAMS)
+        client.get("/tools/convert", params={**VALID_PARAMS, "to": "GBP"})
+        client.get("/tools/convert", params={**VALID_PARAMS, "to": "USD"})
+
+    assert upstream_calls == 4
 
 
 @pytest.mark.parametrize(
@@ -350,6 +379,39 @@ def test_rejects_a_malformed_or_missing_date() -> None:
     assert_error(missing, 422, "invalid_request")
 
 
+@pytest.mark.parametrize("missing_field", ["amount", "from", "to", "date"])
+def test_requires_every_public_query_parameter(missing_field: str) -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        pytest.fail("A request with a missing field must not reach the upstream")
+
+    params = dict(VALID_PARAMS)
+    params.pop(missing_field)
+
+    with api_client(upstream) as client:
+        response = client.get("/tools/convert", params=params)
+
+    expected_code = {
+        "amount": "invalid_amount",
+        "from": "invalid_currency",
+        "to": "invalid_currency",
+        "date": "invalid_request",
+    }[missing_field]
+    assert_error(response, 422, expected_code)
+
+
+def test_does_not_accept_the_old_internal_query_names() -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Internal parameter names must not reach the upstream")
+
+    with api_client(upstream) as client:
+        response = client.get(
+            "/tools/convert",
+            params={"amount": "250", "from_": "USD", "to": "TRY", "on": "2026-08-28"},
+        )
+
+    assert_error(response, 422, "invalid_currency")
+
+
 @pytest.mark.parametrize("upstream_status", [404, 422])
 def test_maps_missing_upstream_rates(upstream_status: int) -> None:
     def upstream(_: httpx.Request) -> httpx.Response:
@@ -361,7 +423,18 @@ def test_maps_missing_upstream_rates(upstream_status: int) -> None:
     assert_error(response, 404, "rate_not_found")
 
 
-@pytest.mark.parametrize("upstream_status", [400, 429, 500, 503])
+def test_maps_a_well_formed_but_unsupported_currency_to_rate_not_found() -> None:
+    def upstream(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["symbols"] == "ZZZ"
+        return httpx.Response(404, json={"message": "not found"})
+
+    with api_client(upstream) as client:
+        response = client.get("/tools/convert", params={**VALID_PARAMS, "to": "ZZZ"})
+
+    assert_error(response, 404, "rate_not_found")
+
+
+@pytest.mark.parametrize("upstream_status", [301, 400, 429, 500, 503])
 def test_maps_unexpected_upstream_statuses(upstream_status: int) -> None:
     def upstream(_: httpx.Request) -> httpx.Response:
         return httpx.Response(upstream_status, text="upstream details")
@@ -417,6 +490,7 @@ def test_rejects_a_non_json_response() -> None:
         valid_payload(rates={"TRY": True}),
         valid_payload(date="not-a-date"),
         valid_payload(date=20260828),
+        valid_payload(date="1999-01-03"),
         valid_payload(date="2026-08-29"),
     ],
 )

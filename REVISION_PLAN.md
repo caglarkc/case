@@ -109,7 +109,7 @@ Durum: **Tamamlandı**
 
 ### R6 — Eksik otomatik testlerin tamamlanması
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - Büyük tutar hassasiyeti, strict upstream sayıları, OpenAPI sözleşmesi,
   eşzamanlı cache, `/latest` yasağı ve script taşınabilirliği için regresyon
