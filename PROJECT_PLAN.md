@@ -59,7 +59,7 @@ Durum: **Tamamlandı**
 
 ### 3. Proje gereksinimlerini ve riskleri değerlendirme
 
-Durum: **Sıradaki aşama**
+Durum: **Tamamlandı**
 
 Aşağıdaki maddeler kod yazılmadan önce kesinleştirilecek:
 
@@ -87,6 +87,8 @@ Temel riskler:
 
 ### 4. API sözleşmesini araştırma dokümanından ayırma
 
+Durum: **Tamamlandı**
+
 `FRANKFURTER_API_REPORT.md` içinden yalnızca uygulama için gerekli bilgiler
 çıkarılacak:
 
@@ -104,7 +106,11 @@ Temel riskler:
 Bu bilgiler uygulamanın veri modellerine, doğrulama kurallarına ve hata eşleme
 tablosuna dönüştürülecek. Genel v2 özellikleri Part A koduna taşınmayacak.
 
+Çıktı: `IMPLEMENTATION_DESIGN.md`
+
 ### 5. Part A uygulamasını yazma
+
+Durum: **Sıradaki aşama**
 
 - Bağımlılık dosyası oluşturulacak.
 - FastAPI uygulaması ve `/tools/convert` endpoint'i yazılacak.
@@ -194,4 +200,3 @@ iki görevin kodları birbirine karıştırılmayacaktır.
 - README bir dakikadan kısa sürede takip edilebiliyor.
 - `NOTES.md` ve `REVIEW.md` tamamlanmış durumda.
 - Değişiklikler küçük ve anlamlı Git commit'lerine ayrılmış durumda.
-
