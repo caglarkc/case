@@ -21,10 +21,16 @@ Gereksinimler değişmedikçe aşağıdaki teknik kararlar sabit kabul edilecekt
 
 ### Part A — Uygulama
 
-Durum: **Tamamlandı**
+Durum: **Kapsamlı revizyonda**
 
 Döviz çeviri endpoint'inin yazılması, doğrulanması, test edilmesi ve kullanım
 dokümantasyonunun hazırlanmasıdır.
+
+İlk uygulama sonrasında Part B bulguları Part A'ya geri uygulanarak ek bir
+güvenilirlik turu başlatılmıştır. Güncel aşamalar, kanıtlanmış açıklar ve commit
+kapıları `REVISION_PLAN.md` içinde takip edilir. Aşağıdaki “Tamamlandı” kayıtları
+ilk geliştirme turunun tarihsel durumudur; revizyon turu bitmeden Part A nihai
+olarak tamamlanmış sayılmaz.
 
 ### Part B — Kod incelemesi
 
