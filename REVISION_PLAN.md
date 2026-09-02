@@ -53,7 +53,7 @@ Durum: **Tamamlandı** (`cf242a3`)
 
 ### R1 — Plan ve kanıtlanmış açıkların kaydı
 
-Durum: **Devam ediyor**
+Durum: **Tamamlandı** (`2544de4`)
 
 - Bu ana revizyon planı eklenecek.
 - Eski proje planında Part A yeniden “revizyonda” olarak işaretlenecek.
@@ -61,7 +61,7 @@ Durum: **Devam ediyor**
 
 ### R2 — Taşınabilir çalıştırma ve yapılandırma
 
-Durum: **Bekliyor**
+Durum: **Tamamlandı**
 
 - `run.sh` ve `test.sh`, depo içindeki `.venv` yorumlayıcısını tercih edecek;
   yoksa kullanılabilir `python3` / `python` yorumlayıcısına güvenli biçimde
