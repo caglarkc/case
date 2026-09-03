@@ -18,6 +18,7 @@ import httpx
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 ASKED_DATE = "2024-08-31"
 RATE_DATE = "2024-08-30"
+STALE_RATE_DATE = "1999-01-04"
 RATE = 1.2345
 
 
@@ -42,7 +43,7 @@ class FakeFrankfurterHandler(BaseHTTPRequestHandler):
             {
                 "amount": 1,
                 "base": source,
-                "date": RATE_DATE,
+                "date": STALE_RATE_DATE if target == "OLD" else RATE_DATE,
                 "rates": {target: RATE},
             },
         )
@@ -182,6 +183,15 @@ def main() -> None:
                 {"status": missing_rate.status_code, "error": missing_rate.json()["error"]},
                 lambda: missing_rate.status_code == 404
                 and missing_rate.json()["error"] == "rate_not_found",
+            )
+
+            stale_rate = client.get("/tools/convert", params={**params, "to": "OLD"})
+            check(
+                "Rate from an unrelated period is refused",
+                {"status": 404, "error": "stale_rate"},
+                {"status": stale_rate.status_code, "error": stale_rate.json()["error"]},
+                lambda: stale_rate.status_code == 404
+                and stale_rate.json()["error"] == "stale_rate",
             )
 
             received_paths = [request["path"] for request in FakeFrankfurterHandler.requests]

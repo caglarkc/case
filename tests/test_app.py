@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import date
@@ -139,6 +140,62 @@ def test_uses_the_actual_rate_date_for_a_weekend() -> None:
     assert response.json()["asked_date"] == "2026-08-30"
     assert response.json()["rate_date"] == "2026-08-28"
     assert upstream_calls == 1
+
+
+@pytest.mark.parametrize("rate_date", ["2026-08-28", "2026-08-24", "2026-08-21"])
+def test_accepts_a_rate_published_within_the_staleness_window(rate_date: str) -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=valid_payload(date=rate_date))
+
+    with api_client(upstream) as client:
+        response = client.get("/tools/convert", params=VALID_PARAMS)
+
+    assert response.status_code == 200
+    assert response.json()["rate_date"] == rate_date
+    assert response.json()["asked_date"] == "2026-08-28"
+
+
+@pytest.mark.parametrize("rate_date", ["2026-08-20", "2024-08-28", "1999-01-04"])
+def test_rejects_a_rate_that_is_too_far_from_the_requested_date(rate_date: str) -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=valid_payload(date=rate_date))
+
+    with api_client(upstream) as client:
+        response = client.get("/tools/convert", params=VALID_PARAMS)
+
+    assert_error(response, 404, "stale_rate")
+
+
+def test_does_not_cache_a_stale_rate() -> None:
+    upstream_calls = 0
+
+    def upstream(_: httpx.Request) -> httpx.Response:
+        nonlocal upstream_calls
+        upstream_calls += 1
+        return httpx.Response(200, json=valid_payload(date="1999-01-04"))
+
+    with api_client(upstream) as client:
+        client.get("/tools/convert", params=VALID_PARAMS)
+        client.get("/tools/convert", params=VALID_PARAMS)
+
+    assert upstream_calls == 2
+    assert application._rate_cache == {}
+
+
+def test_logs_the_hidden_cause_of_an_upstream_failure(caplog: pytest.LogCaptureFixture) -> None:
+    def upstream(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="upstream details")
+
+    with caplog.at_level(logging.INFO, logger="fx"):
+        with api_client(upstream) as client:
+            response = client.get("/tools/convert", params=VALID_PARAMS)
+
+    assert_error(response, 502, "upstream_error")
+    assert "upstream status 503" not in response.text
+    assert any(
+        record.levelno == logging.WARNING and "upstream status 503" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_calculates_before_rounding_the_result() -> None:
