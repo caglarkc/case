@@ -37,7 +37,7 @@ Example response:
 
 ```json
 {
-  "amount": 250.0,
+  "amount": 250,
   "from": "EUR",
   "to": "TRY",
   "rate": 56.1718,
@@ -56,11 +56,9 @@ Example response:
 
 The unit/contract tests replace Frankfurter with a fake HTTP transport. A final
 process acceptance test starts a fake provider on loopback and launches the
-service through `run.sh`; no external network is used. The suite also passes
+service through `run.sh`; no external network is used. It prints an
+expected-versus-created table for each acceptance check. The suite also passes
 when the parent `FX_UPSTREAM_BASE` points to a closed port.
-
-The final expected-versus-created results are recorded in
-[`ACCEPTANCE_REPORT.md`](ACCEPTANCE_REPORT.md).
 
 ## Configuration
 
@@ -93,6 +91,20 @@ holidays. The service accepts that rate but never hides the date difference:
 The service never calls `/latest` as a fallback for a dated request. An invalid
 or unavailable rate produces an error rather than a zero or invented result.
 
+A published rate is only accepted when `rate_date` is within seven days of
+`asked_date`. The ECB publishes on TARGET working days, and its longest real
+gap is the four days of an Easter weekend, so a week of tolerance covers every
+genuine publication break; a larger gap means the pair has no rate for that
+period at all — for example a currency whose series ended — and returning it
+would answer the customer's question with a number from an unrelated time, so
+the service answers `stale_rate` instead.
+
+A currency code that exists nowhere in the ECB series (`ZZZ`) and a valid pair
+with no rate on the requested date both return `404 rate_not_found`. Frankfurter
+reports both the same way, and telling them apart would need a second call to
+`/currencies` on a path that is already failing, while the caller's next action
+is identical in both cases: this conversion cannot be quoted.
+
 Successful rate lookups are cached in memory by source currency, target
 currency and requested date. Repeating a lookup does not call Frankfurter
 again. Simultaneous misses for the same key also share one upstream request.
@@ -117,7 +129,8 @@ Every failure uses a non-2xx status and the same body shape:
 | 422 | `same_currency` | Source and target currencies are the same |
 | 422 | `future_date` | Requested date is in the future |
 | 422 | `date_out_of_range` | Requested date predates the ECB series |
-| 404 | `rate_not_found` | Frankfurter has no rate for the valid pair/date request |
+| 404 | `rate_not_found` | Frankfurter has no rate for that pair and date, or the currency does not exist |
+| 404 | `stale_rate` | The nearest published rate is more than seven days from the requested date |
 | 502 | `upstream_unavailable` | Frankfurter cannot be reached |
 | 502 | `upstream_error` | Frankfurter returns an unexpected HTTP error |
 | 502 | `invalid_upstream_response` | Frankfurter returns non-JSON or invalid data |
@@ -141,3 +154,8 @@ string or boolean), positive and finite, with at most 18 significant/integer
 digits and 12 decimal places. Values outside that defensive calculation range
 produce `invalid_upstream_response` rather than an uncontrolled arithmetic
 failure.
+
+Every rejected or failed conversion is logged once with its error code, the
+query and the cause that is deliberately kept out of the response body — the
+provider's HTTP status, for instance — so an outage leaves a trace an operator
+can read. Provider problems log at `WARNING`, caller mistakes at `INFO`.

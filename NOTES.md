@@ -11,6 +11,12 @@ published rate. It copies the upstream `date` into `rate_date` and keeps the
 caller's date in `asked_date`, so the customer can see that they differ. It
 never falls back to `/latest` for a historical request.
 
+Visible provenance is necessary but not sufficient, so the gap is also bounded
+at seven days. The ECB's longest genuine break is the four days of an Easter
+weekend; anything beyond a week means the pair simply has no rate for that
+period, and a rate from an unrelated time is a worse answer than an explicit
+`stale_rate`.
+
 Amounts and calculations use `Decimal`. The rate is not rounded before
 multiplication; only the final result is rounded to two decimal places. A
 bounded in-memory cache stores successful lookups by currency pair and asked
@@ -25,14 +31,16 @@ range are treated as invalid upstream data.
 I reject future dates, dates before 1999-01-04, malformed input and identical
 currency pairs before calling the upstream. Network, timeout, HTTP and response
 schema failures are returned as explicit non-2xx errors. A wrong number is
-never replaced with a zero or guessed rate.
+never replaced with a zero or guessed rate. Each failure is logged once with the
+cause that the response body deliberately hides, so an outage is diagnosable
+without leaking provider details to the caller.
 
 ## With another day
 
-I would add structured operational logs and metrics, plus a contract test
-against a locally hosted Frankfurter build. For multiple workers, I would
-replace the per-process cache and in-flight request map with a small shared
-cache while preserving the same strict validation rules.
+I would add metrics and request tracing on top of the current failure logs, plus
+a contract test against a locally hosted Frankfurter build. For multiple
+workers, I would replace the per-process cache and in-flight request map with a
+small shared cache while preserving the same strict validation rules.
 
 ## AI tools
 
